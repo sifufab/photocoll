@@ -42,6 +42,12 @@
   .btnrow { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
   #info { font-size:12.5px; color:var(--muted); margin-bottom:10px; line-height:1.5; }
   #preview { background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.15); max-width:100%; height:auto; display:block; }
+  #page.on { background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.25); overflow:hidden; position:relative; }
+  #page.on::before { content:""; position:absolute; inset:var(--m); border:1px dashed #c9ced8; pointer-events:none; }
+  #page.on #preview { box-shadow:none; max-width:none; }
+  #caption { display:none; color:#8a92a3; font-family:Arial, sans-serif; margin-top:.4em; }
+  #page.on #caption { display:block; }
+  #page.on.over::after { content:"Collage höher als der Satzspiegel"; position:absolute; left:0; right:0; bottom:0; background:#c33; color:#fff; font-size:12px; text-align:center; padding:2px; }
   .sub { margin-left:12px; }
 </style>
 </head>
@@ -69,8 +75,8 @@
   <fieldset>
     <legend>2 · Raster</legend>
     <div class="btnrow" style="margin:2px 0 6px">
-      <button id="tplLandscape" title="A4 quer, 3:4-Zuschnitt, 1 oder 2 Reihen">A4 quer · Hochformat-Fotos</button>
-      <button id="tplPortrait" title="A4 hoch, Originalformat, 3 Spalten">A4 hoch · 3 Spalten</button>
+      <button id="tplLandscape" title="Word-Seite im Querformat, Fotos hochkant (3:4) zugeschnitten, 1 oder 2 Reihen">Seite A4 quer · Fotos hochkant</button>
+      <button id="tplPortrait" title="Word-Seite im Hochformat, Fotos im Originalformat, 3 Spalten">Seite A4 hoch · Fotos im Original</button>
     </div>
     <div class="presets" id="presets"></div>
     <label class="row"><span>Zeilen × Spalten</span>
@@ -81,7 +87,7 @@
 
   <fieldset>
     <legend>3 · Format &amp; Ausgabe</legend>
-    <label class="row"><span>Breite</span>
+    <label class="row"><span>Seite / Breite</span>
       <select data-s="widthPreset">
         <option value="16" selected>A4 hoch (Word): 16 cm</option>
         <option value="24.7">A4 quer (Word): 24,7 cm</option>
@@ -179,9 +185,11 @@
 <section class="view">
   <div class="btnrow" style="margin:0 0 10px">
     <button class="primary" id="export">Collage exportieren</button>
+    <label style="display:flex;align-items:center;gap:5px;margin-left:10px"><input type="checkbox" data-s="pageView" checked> Seitenvorschau (bei A4)</label>
   </div>
   <div id="info">Noch keine Bilder geladen.</div>
-  <canvas id="preview" width="10" height="10"></canvas>
+  <div id="page"><canvas id="preview" width="10" height="10"></canvas>
+    <div id="caption"><b>Abbildung 1:</b> Platz für die Bildunterschrift …</div></div>
 </section>
 </main>
 
@@ -560,6 +568,7 @@ function update() {
     }
     if (s.sb && s.aspect === "orig" && s.zoom <= 1) html += `<br><span class="warn">Hinweis: Die Bilder enthalten evtl. bereits einen eingebrannten Maßstab, dann wäre er doppelt.</span>`;
     $("#info").innerHTML = html;
+    layoutPage(s, Lx);
   });
 }
 settingEls.forEach(el => el.addEventListener("input", update));
@@ -568,6 +577,29 @@ const MAXH = { "16": 22, "24.7": 14, "8.5": 22, "17": 22 };
 document.querySelector('[data-s="widthPreset"]').addEventListener("input", e => {
   if (e.target.value in MAXH) document.querySelector('[data-s="maxHCm"]').value = MAXH[e.target.value];
 });
+
+/* ---------------- Page preview (A4 with Word default margins; preview only, not exported) ---------------- */
+const PAGES = { "16": { w: 21, h: 29.7 }, "24.7": { w: 29.7, h: 21 } };
+const MARGIN = { top: 2.5, right: 2.5, bottom: 2, left: 2.5 };
+function layoutPage(s, Lx) {
+  const page = $("#page"), pg = PAGES[s.widthPreset];
+  if (!pg || !s.pageView) {
+    page.className = ""; page.removeAttribute("style"); preview.style.width = ""; return;
+  }
+  const view = document.querySelector("section.view");
+  const availW = view.clientWidth - 40;
+  const availH = window.innerHeight - page.getBoundingClientRect().top - 24;
+  const k = Math.max(8, Math.min(availW / pg.w, availH / pg.h));      // px per cm
+  page.className = "on";
+  page.style.width = pg.w * k + "px"; page.style.height = pg.h * k + "px";
+  page.style.padding = `${MARGIN.top * k}px ${MARGIN.right * k}px ${MARGIN.bottom * k}px ${MARGIN.left * k}px`;
+  page.style.setProperty("--m", `${MARGIN.top * k}px ${MARGIN.right * k}px ${MARGIN.bottom * k}px ${MARGIN.left * k}px`);
+  const wCm = Lx.W / Lx.mm / 10, hCm = Lx.H / Lx.mm / 10;
+  preview.style.width = wCm * k + "px";
+  $("#caption").style.fontSize = (10 / 72 * 2.54) * k + "px";               // 10 pt caption
+  if (hCm > pg.h - MARGIN.top - MARGIN.bottom + 0.01) page.classList.add("over");
+}
+window.addEventListener("resize", update);
 
 /* ---------------- Export with DPI metadata ---------------- */
 const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
