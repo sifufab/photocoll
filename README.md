@@ -10,8 +10,9 @@ Eine einzelne HTML-Seite (`index.html`), die Bilder zu einer Collage zusammenset
 1. Bilder hineinziehen. Sie werden nach Dateiname sortiert (natürliche Sortierung: `P1_T2_U10` kommt nach `P1_T2_U9`).
    Die Reihenfolge lässt sich per Drag & Drop ändern. „Leerfeld +“ fügt eine leere Zelle ein.
 2. Raster wählen (Voreinstellung oder freie Eingabe für Zeilen × Spalten), dazu zeilen- oder spaltenweise Nummerierung.
-3. Breite festlegen: 8,5 cm (einspaltig, ACS/RSC) oder 17 cm (volle Textbreite).
+3. Seite bzw. Breite wählen: **A4 hoch** (16 cm), **A4 quer** (24,7 cm), Journal einspaltig (8,5 cm) oder zweispaltig (17 cm).
    Mit **max. Höhe** wird die Breite automatisch reduziert, wenn die Collage sonst nicht auf die Seite passt.
+   Die Vorlage setzt die max. Höhe passend (hoch 22 cm, quer 14 cm), damit Platz für die Bildunterschrift bleibt.
 4. Optional: Zuschnitt (Seitenverhältnis, Zoom, Position), Panel-Buchstaben, neuer Maßstabsbalken, Zeilen- und Spaltentitel.
 5. **Collage exportieren**: Die Datei bekommt eine DPI-Angabe, damit Word sie direkt in der richtigen Größe einfügt.
 
@@ -21,11 +22,31 @@ Die Einstellungen werden im Browser gespeichert (localStorage), die Bilder nicht
 
 | Parameter | Wert |
 |---|---|
-| Breite | 8,5 cm bzw. 17 cm |
+| Breite | Word A4 hoch 16 cm, A4 quer 24,7 cm (Standardränder 2,5 cm); Journal 8,5 cm bzw. 17 cm |
 | Auflösung | 600 dpi (Fotos: mind. 300 dpi, kombinierte Grafiken: 600 dpi) |
 | Schrift | Arial/Helvetica, Panel-Buchstaben 10 pt fett, Maßstab 8 pt (im Druck nie unter ca. 6 pt) |
 | Panel-Buchstaben | (a), (b), … oben links |
 | Format | JPEG 95 % (PNG optional, aber 5–10× größer) |
+
+## Querformat-Seite mit Hochformat-Fotos
+
+Mit der Schnellvorlage **„A4 quer · Hochformat-Fotos“** wird A4 quer eingestellt, die Bilder werden auf 3:4 zugeschnitten
+und das Raster passend gewählt: bis 5 Bilder in einer Reihe, sonst 2 Reihen mit maximal 5 Bildern.
+
+| Bilder | Raster | Panelgröße |
+|---|---|---|
+| 5 | 1 × 5 | 4,9 × 6,5 cm |
+| 10 | 2 × 5 | 4,9 × 6,5 cm |
+| 20 | 2 Seiten à 2 × 5 (zweite Abbildung mit „Beginnen bei: k“) | 4,9 × 6,5 cm |
+
+Ein 2 × 10-Raster für 20 Bilder auf einer Seite ist möglich, ergibt aber nur ca. 2,4 × 3,2 cm pro Panel.
+
+Zwei Wege zum Hochformat:
+- **Zuschnitt 3:4 / 2:3 / 1:2** (empfohlen): Die volle Bildhöhe bleibt erhalten, links und rechts wird beschnitten.
+  Mit „Position horizontal“ wählst du den Ausschnitt. Der eingebrannte Maßstab rechts unten wird dabei meist angeschnitten,
+  deshalb den Balken neu einblenden.
+- **Drehen um 90°**: Das ganze Bild bleibt erhalten, aber der eingebrannte Maßstab steht dann senkrecht.
+  Für eine Publikation ist das nur mit Bildern ohne eingebrannten Balken sinnvoll.
 
 ## Kalibrierung des Maßstabsbalkens
 
