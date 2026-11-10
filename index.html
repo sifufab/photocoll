@@ -40,6 +40,9 @@
   .thumb.empty { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px; }
   .thumb.dragover { outline:2px solid var(--accent); }
   .btnrow { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  #readWarn { display:none; border-radius:5px; padding:7px 10px; margin-bottom:10px; font-size:13px; line-height:1.4; }
+  #readWarn.mid { display:block; background:#fff4dc; border:1px solid #e8b04a; color:#6b4a00; }
+  #readWarn.bad { display:block; background:#fde4e4; border:1px solid #d65a5a; color:#7a1414; }
   #info { font-size:12.5px; color:var(--muted); margin-bottom:10px; line-height:1.5; }
   #preview { background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.15); max-width:100%; height:auto; display:block; }
   #page.on { background:#fff; box-shadow:0 1px 6px rgba(0,0,0,.25); overflow:hidden; position:relative; }
@@ -81,6 +84,9 @@
     <div class="presets" id="presets"></div>
     <label class="row"><span>Zeilen × Spalten</span>
       <span><input type="number" data-s="rows" min="1" max="30" value="3"> × <input type="number" data-s="cols" min="1" max="12" value="3"></span></label>
+    <label class="row"><span>Raster automatisch an Bildanzahl anpassen</span><input type="checkbox" data-s="autoFit"></label>
+    <p class="hint">Wählt Zeilen × Spalten so, dass alle Bilder auf die Seite passen und dabei möglichst groß bleiben.
+      Wird ausgeschaltet, sobald du das Raster von Hand änderst.</p>
     <label class="row"><span>Nummerierung</span>
       <select data-s="order"><option value="row">zeilenweise →</option><option value="col">spaltenweise ↓</option></select></label>
   </fieldset>
@@ -187,6 +193,7 @@
     <button class="primary" id="export">Collage exportieren</button>
     <label style="display:flex;align-items:center;gap:5px;margin-left:10px"><input type="checkbox" data-s="pageView" checked> Seitenvorschau (bei A4)</label>
   </div>
+  <div id="readWarn"></div>
   <div id="info">Noch keine Bilder geladen.</div>
   <div id="page"><canvas id="preview" width="10" height="10"></canvas>
     <div id="caption"><b>Abbildung 1:</b> Platz für die Bildunterschrift …</div></div>
@@ -227,23 +234,40 @@ const PRESETS = [[1,2],[1,3],[1,4],[1,5],[2,2],[2,3],[2,4],[2,5],[3,2],[3,3],[3,
 const presetBox = $("#presets");
 const autoBtn = document.createElement("button");
 autoBtn.textContent = "auto"; autoBtn.title = "Raster passend zur Bildanzahl";
-autoBtn.onclick = () => { autoGrid(); update(); };
+autoBtn.onclick = () => { setAutoFit(true); update(); };
 presetBox.appendChild(autoBtn);
 for (const [r, c] of PRESETS) {
   const b = document.createElement("button");
   b.textContent = `${r}×${c}`;
-  b.onclick = () => { setGrid(r, c); update(); };
+  b.onclick = () => { setAutoFit(false); setGrid(r, c); update(); };
   presetBox.appendChild(b);
 }
 function setGrid(r, c) {
   document.querySelector('[data-s="rows"]').value = r;
   document.querySelector('[data-s="cols"]').value = c;
 }
+function setAutoFit(on) { document.querySelector('[data-s="autoFit"]').checked = on; }
+// Manual change of rows/cols switches automatic fitting off
+["rows", "cols"].forEach(k => document.querySelector(`[data-s="${k}"]`).addEventListener("input", () => setAutoFit(false)));
+// Grid with the largest panels that still holds all images within width and max. height
+function fitGrid(s) {
+  const n = items.length;
+  if (!n) return;
+  let best = null;
+  for (let c = 1; c <= Math.min(n, 12); c++) {
+    const r = Math.ceil(n / c);
+    const L = layout({ ...s, rows: r, cols: c }, 100);
+    const size = Math.min(L.cellW, L.cellH);
+    const empty = r * c - n;
+    if (!best || size > best.size * 1.001 || (Math.abs(size - best.size) <= best.size * 0.001 && empty < best.empty))
+      best = { r, c, size, empty };
+  }
+  setGrid(best.r, best.c); s.rows = best.r; s.cols = best.c;
+}
 function setVal(k, v) { document.querySelector(`[data-s="${k}"]`).value = v; }
 $("#tplLandscape").onclick = () => {
   setVal("widthPreset", "24.7"); setVal("maxHCm", 14); setVal("aspect", "0.75"); setVal("rotate", "0");
-  const n = Math.max(1, items.length);
-  if (n <= 5) setGrid(1, n); else setGrid(2, Math.min(5, Math.ceil(n / 2)));   // more than 10 → next figure
+  setAutoFit(true);                   // all photos on the page, as large as possible
   update();
 };
 $("#tplPortrait").onclick = () => {
@@ -546,6 +570,7 @@ function update() {
   requestAnimationFrame(() => {
     pending = false;
     const s = getS();
+    if (s.autoFit) fitGrid(s);
     localStorage.setItem(STORE_KEY, JSON.stringify(s));
     document.querySelector('[data-s="widthCm"]').closest("label").style.display = s.widthPreset === "custom" ? "" : "none";
     document.querySelector('[data-s="sbLen"]').closest("label").style.display = s.sbLenMode === "fix" ? "" : "none";
@@ -568,6 +593,7 @@ function update() {
     }
     if (s.sb && s.aspect === "orig" && s.zoom <= 1) html += `<br><span class="warn">Hinweis: Die Bilder enthalten evtl. bereits einen eingebrannten Maßstab, dann wäre er doppelt.</span>`;
     $("#info").innerHTML = html;
+    readability(Lx, imgs);
     layoutPage(s, Lx);
   });
 }
@@ -577,6 +603,29 @@ const MAXH = { "16": 22, "24.7": 14, "8.5": 22, "17": 22 };
 document.querySelector('[data-s="widthPreset"]').addEventListener("input", e => {
   if (e.target.value in MAXH) document.querySelector('[data-s="maxHCm"]').value = MAXH[e.target.value];
 });
+
+/* ---------------- Readability warning ----------------
+   Rule of thumb for printed photo panels (no hard journal rule): below ~3.5 cm on the short side
+   fine structures get hard to see, below ~2.5 cm details are barely recognisable and a 10 pt label
+   covers a noticeable part of the panel. */
+const READ_MID = 3.5, READ_BAD = 2.5;   // cm, short side of a panel
+function readability(Lx, imgs) {
+  const box = $("#readWarn");
+  const short = Math.min(Lx.cellW, Lx.cellH) / Lx.mm / 10;
+  const f = v => v.toFixed(1).replace(".", ",");
+  if (!imgs || short >= READ_MID) { box.className = ""; box.textContent = ""; return; }
+  const tip = "Abhilfe: Bilder auf zwei Abbildungen aufteilen (zweite mit „Beginnen bei“ weiterzählen), " +
+              "Seitenverhältnis bzw. Raster ändern oder mit Zoom auf das Wesentliche zuschneiden.";
+  if (short < READ_BAD) {
+    box.className = "bad";
+    box.innerHTML = `<b>⚠ Zu klein für gute Lesbarkeit:</b> Die Panels sind nur ${f(Lx.cellW / Lx.mm / 10)} × ${f(Lx.cellH / Lx.mm / 10)} cm groß. ` +
+      `Details sind im Druck kaum erkennbar, und die Panel-Buchstaben verdecken einen merklichen Teil des Bildes. ${tip}`;
+  } else {
+    box.className = "mid";
+    box.innerHTML = `<b>Hinweis Lesbarkeit:</b> Die Panels sind ${f(Lx.cellW / Lx.mm / 10)} × ${f(Lx.cellH / Lx.mm / 10)} cm groß. ` +
+      `Feine Strukturen sind im Druck schwer erkennbar (empfohlen: mind. ${f(READ_MID)} cm). ${tip}`;
+  }
+}
 
 /* ---------------- Page preview (A4 with Word default margins; preview only, not exported) ---------------- */
 const PAGES = { "16": { w: 21, h: 29.7 }, "24.7": { w: 29.7, h: 21 } };

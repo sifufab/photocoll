@@ -30,16 +30,23 @@ Die Einstellungen werden im Browser gespeichert (localStorage), die Bilder nicht
 
 ## Querformat-Seite mit Hochformat-Fotos
 
-Mit der Schnellvorlage **„A4 quer · Hochformat-Fotos“** wird A4 quer eingestellt, die Bilder werden auf 3:4 zugeschnitten
-und das Raster passend gewählt: bis 5 Bilder in einer Reihe, sonst 2 Reihen mit maximal 5 Bildern.
+Mit der Schnellvorlage **„Seite A4 quer · Fotos hochkant“** wird A4 quer eingestellt, die Bilder werden auf 3:4 zugeschnitten
+und das Raster automatisch gewählt (siehe unten).
 
-| Bilder | Raster | Panelgröße |
-|---|---|---|
-| 5 | 1 × 5 | 4,9 × 6,5 cm |
-| 10 | 2 × 5 | 4,9 × 6,5 cm |
-| 20 | 2 Seiten à 2 × 5 (zweite Abbildung mit „Beginnen bei: k“) | 4,9 × 6,5 cm |
+Die Vorlage schaltet **„Raster automatisch an Bildanzahl anpassen“** ein: Alle Bilder kommen auf die Seite,
+und das Raster wird so gewählt, dass die Panels möglichst groß bleiben. Gerechnet mit 3:4-Zuschnitt, 24,7 cm Breite und 14 cm max. Höhe:
 
-Ein 2 × 10-Raster für 20 Bilder auf einer Seite ist möglich, ergibt aber nur ca. 2,4 × 3,2 cm pro Panel.
+| Bilder | Raster | Panelgröße | Lesbarkeit |
+|---|---|---|---|
+| 5 | 2 × 3 | 5,2 × 6,9 cm | gut |
+| 10 | 2 × 5 | 4,9 × 6,5 cm | gut |
+| 20 | 3 × 7 | 3,4 × 4,6 cm | Hinweis (gelb) |
+| 30 | 4 × 8 | 2,6 × 3,4 cm | Hinweis (gelb) |
+| 40 | 4 × 10 | 2,4 × 3,2 cm | Warnung (rot) |
+
+Die Lesbarkeitswarnung richtet sich nach der kurzen Seite eines Panels: unter 3,5 cm ein gelber Hinweis,
+unter 2,5 cm eine rote Warnung. Das ist eine Faustregel für gedruckte Fotos, keine Journal-Vorgabe.
+Wer das Raster von Hand ändert, schaltet die automatische Anpassung damit aus.
 
 Zwei Wege zum Hochformat:
 - **Zuschnitt 3:4 / 2:3 / 1:2** (empfohlen): Die volle Bildhöhe bleibt erhalten, links und rechts wird beschnitten.
