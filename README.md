@@ -112,3 +112,10 @@ Hinweis: GitHub Pages ist bei kostenlosen Accounts nur für **öffentliche** Rep
 Das Tool ist kostenlos. Wenn es dir Zeit spart, kannst du mir über den Button „☕ Kaffee spendieren“ oben rechts
 einen Kaffee auf Ko-fi spendieren. Der Button ist ein einfacher Link: Es werden keine Skripte von Ko-fi geladen,
 und erst beim Klick wird ko-fi.com geöffnet.
+
+## App-Symbol
+
+Die Seite hat ein eigenes Symbol (`icons/`), das im Browser-Tab und in der Lesezeichenleiste erscheint.
+Über `manifest.webmanifest` kann die Seite in Chrome/Edge außerdem als App installiert werden
+(Adressleiste → Symbol „App installieren“, bzw. Menü → „Streamen, speichern und teilen“ → „Seite als App installieren“).
+Sie öffnet sich dann in einem eigenen Fenster mit diesem Symbol.
