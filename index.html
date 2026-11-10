@@ -55,8 +55,8 @@
 
   <fieldset>
     <legend>1 · Bilder</legend>
-    <div id="drop">Bilder hierher ziehen oder <u>klicken</u><br><small>JPG, PNG, BMP, WebP (kein TIFF)</small></div>
-    <input type="file" id="file" accept="image/*" multiple hidden>
+    <div id="drop">Bilder hierher ziehen oder <u>klicken</u><br><small>JPG, PNG, BMP, WebP, HEIC (kein TIFF)</small></div>
+    <input type="file" id="file" accept="image/*,.heic,.heif" multiple hidden>
     <div class="btnrow">
       <button id="sortName">Nach Dateiname sortieren</button>
       <button id="addEmpty">Leerfeld +</button>
@@ -259,23 +259,61 @@ drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("
 
 const natCmp = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 
+/* HEIC/HEIF (iPhone): Safari decodes natively; other browsers use the heic-to decoder (libheif, WASM),
+   loaded on demand from ./vendor/ (works offline / GitHub Pages) or, if missing, from the jsDelivr CDN. */
+const HEIC_RE = /\.(heic|heif)$/i;
+const HEIC_SRC = ["vendor/heic-to.js", "https://cdn.jsdelivr.net/npm/heic-to@1.6.7/dist/iife/heic-to.js"];
+let heicLoader = null;
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const sc = document.createElement("script");
+    sc.src = src; sc.onload = res; sc.onerror = () => { sc.remove(); rej(new Error(src)); };
+    document.head.appendChild(sc);
+  });
+}
+function loadHeic() {
+  if (!heicLoader) heicLoader = (async () => {
+    for (const src of HEIC_SRC) {
+      try { await loadScript(src); if (window.HeicTo) return window.HeicTo; } catch (e) {}
+    }
+    heicLoader = null;
+    throw new Error("HEIC-Decoder konnte nicht geladen werden (vendor/heic-to.js fehlt und keine Internetverbindung).");
+  })();
+  return heicLoader;
+}
+async function decodeUrl(url) { const img = new Image(); img.src = url; await img.decode(); return img; }
+function setStatus(t) { $("#drop").innerHTML = t || 'Bilder hierher ziehen oder <u>klicken</u><br><small>JPG, PNG, BMP, WebP, HEIC (kein TIFF)</small>'; }
+
 async function addFiles(fileList) {
-  const files = [...fileList].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|bmp|webp|gif)$/i.test(f.name));
+  const files = [...fileList].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|bmp|webp|gif|heic|heif)$/i.test(f.name));
   files.sort((a, b) => natCmp(a.name, b.name));
   const wasEmpty = items.length === 0;
   const skipped = [];
+  let k = 0;
   for (const f of files) {
-    const url = URL.createObjectURL(f);
-    const img = new Image();
+    k++;
+    let url = URL.createObjectURL(f);
     try {
-      img.src = url;
-      await img.decode();
+      let img;
+      try { img = await decodeUrl(url); }          // native (incl. HEIC in Safari)
+      catch (e) {
+        if (!(HEIC_RE.test(f.name) || /hei[cf]/i.test(f.type))) throw e;
+        URL.revokeObjectURL(url); url = null;
+        setStatus(`HEIC wird umgewandelt … (${k}/${files.length})`);
+        const heicTo = await loadHeic();
+        const jpg = await heicTo({ blob: f, type: "image/jpeg", quality: 0.97 });
+        url = URL.createObjectURL(jpg);
+        img = await decodeUrl(url);
+      }
       items.push({ name: f.name, img, url });
+      if (k % 3 === 0) update();                    // show progress for long batches
     } catch (e) {
-      skipped.push(f.name); URL.revokeObjectURL(url);
+      skipped.push(f.name + (e && e.message && /HEIC/.test(e.message) ? " – " + e.message : ""));
+      if (url) URL.revokeObjectURL(url);
     }
   }
-  if (skipped.length) alert("Konnte nicht gelesen werden (TIFF wird von Browsern meist nicht unterstützt):\n" + skipped.join("\n"));
+  setStatus();
+  if (skipped.length) alert("Konnte nicht gelesen werden (TIFF wird von Browsern nicht unterstützt):\n" + skipped.join("\n"));
   if (wasEmpty && items.length) autoGrid();
   update();
 }

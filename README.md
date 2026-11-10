@@ -48,6 +48,17 @@ Zwei Wege zum Hochformat:
 - **Drehen um 90°**: Das ganze Bild bleibt erhalten, aber der eingebrannte Maßstab steht dann senkrecht.
   Für eine Publikation ist das nur mit Bildern ohne eingebrannten Balken sinnvoll.
 
+## HEIC/HEIF (iPhone-Fotos)
+
+HEIC-Dateien können direkt hineingezogen werden:
+- **Safari** (Mac, iPhone) liest HEIC selbst.
+- **Chrome, Edge, Firefox:** Die Seite lädt bei Bedarf den Decoder [heic-to](https://github.com/hoppergee/heic-to)
+  (basiert auf libheif) und wandelt die Fotos lokal im Browser um. Es wird nichts hochgeladen.
+  Der Decoder liegt in `vendor/heic-to.js` und funktioniert damit auch offline, wenn der ganze Ordner heruntergeladen wurde.
+  Fehlt die Datei (z. B. wenn nur `index.html` heruntergeladen wurde), wird er von cdn.jsdelivr.net geladen. Dafür ist Internet nötig.
+
+Lizenz: heic-to und libheif stehen unter der LGPL-3.0 (siehe `vendor/heic-to.LICENSE`). Die Datei ist unverändert übernommen (Version 1.6.7).
+
 ## Kalibrierung des Maßstabsbalkens
 
 Der Wert gilt pro Pixel des **Originalbildes**. Er hängt nur von Objektiv und Vergrößerung ab, nicht vom Zuschnitt.
@@ -72,6 +83,7 @@ Hinweis: GitHub Pages ist bei kostenlosen Accounts nur für **öffentliche** Rep
 ## Bekannte Grenzen
 
 - TIFF können Chrome, Edge und Firefox nicht lesen. Vorher in JPG/PNG umwandeln.
+- HEIC-Umwandlung dauert ca. 2–3 s pro iPhone-Foto (12 MP) und braucht viel Arbeitsspeicher. Bei sehr vielen Fotos lieber in Etappen laden.
 - Ein im Bild eingebrannter Maßstab skaliert mit. In kleinen Panels wird seine Schrift unleserlich.
   Dann besser Bilder ohne eingebrannten Balken exportieren und den Balken hier einblenden.
 - Ab dem 27. Panel geht die Beschriftung mit (aa), (ab), … weiter.
