@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bild-Collage für Publikationen</title>
+<style>
+  :root { --bg:#f4f5f7; --panel:#fff; --line:#d5d8de; --text:#1d2330; --muted:#5f6878; --accent:#1f5fbf; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, "Segoe UI", Arial, sans-serif; font-size:14px; color:var(--text); background:var(--bg); }
+  header { padding:10px 18px; background:var(--panel); border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:16px; }
+  header h1 { font-size:17px; margin:0; }
+  header span { color:var(--muted); font-size:12.5px; }
+  main { display:grid; grid-template-columns: 370px 1fr; gap:0; height:calc(100vh - 46px); }
+  aside { overflow-y:auto; background:var(--panel); border-right:1px solid var(--line); padding:8px 14px 40px; }
+  section.view { overflow:auto; padding:18px; }
+  fieldset { border:1px solid var(--line); border-radius:6px; margin:10px 0; padding:8px 10px 10px; }
+  legend { font-weight:600; padding:0 4px; }
+  label.row { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:5px 0; }
+  label.row > span { color:var(--muted); }
+  input[type=number] { width:80px; }
+  input[type=number], select, input[type=text] { padding:3px 5px; border:1px solid var(--line); border-radius:4px; font:inherit; }
+  select { max-width:190px; }
+  textarea { width:100%; font:inherit; border:1px solid var(--line); border-radius:4px; padding:4px; resize:vertical; }
+  button { font:inherit; padding:5px 10px; border:1px solid var(--line); border-radius:4px; background:#fff; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  .presets { display:flex; flex-wrap:wrap; gap:4px; margin:4px 0 6px; }
+  .presets button { padding:2px 7px; font-size:12.5px; }
+  .hint { color:var(--muted); font-size:12px; margin:4px 0; line-height:1.35; }
+  .warn { color:#a33; }
+  #drop { border:2px dashed var(--line); border-radius:6px; padding:14px; text-align:center; color:var(--muted); cursor:pointer; }
+  #drop.over { border-color:var(--accent); background:#eef4ff; }
+  #thumbs { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:8px; }
+  .thumb { position:relative; border:1px solid var(--line); border-radius:4px; overflow:hidden; background:#eee; cursor:grab; aspect-ratio:4/3; }
+  .thumb img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+  .thumb .lbl { position:absolute; left:3px; top:2px; color:#fff; font-weight:700; text-shadow:0 0 3px #000; font-size:13px; }
+  .thumb .name { position:absolute; left:0; right:0; bottom:0; font-size:10px; background:rgba(0,0,0,.55); color:#fff; padding:1px 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .thumb .del { position:absolute; right:2px; top:2px; padding:0 5px; font-size:12px; line-height:16px; background:rgba(255,255,255,.85); }
+  .thumb.empty { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px; }
+  .thumb.dragover { outline:2px solid var(--accent); }
+  .btnrow { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  #info { font-size:12.5px; color:var(--muted); margin-bottom:10px; line-height:1.5; }
+  #preview { background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.15); max-width:100%; height:auto; display:block; }
+  .sub { margin-left:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bild-Collage für Publikationen</h1>
+  <span>Bilder werden nur lokal im Browser verarbeitet, nichts wird hochgeladen.</span>
+</header>
+<main>
+<aside>
+
+  <fieldset>
+    <legend>1 · Bilder</legend>
+    <div id="drop">Bilder hierher ziehen oder <u>klicken</u><br><small>JPG, PNG, BMP, WebP (kein TIFF)</small></div>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+    <div class="btnrow">
+      <button id="sortName">Nach Dateiname sortieren</button>
+      <button id="addEmpty">Leerfeld +</button>
+      <button id="clearAll">Alle entfernen</button>
+    </div>
+    <p class="hint">Reihenfolge per Drag &amp; Drop der Vorschaubilder ändern.</p>
+    <div id="thumbs"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>2 · Raster</legend>
+    <div class="presets" id="presets"></div>
+    <label class="row"><span>Zeilen × Spalten</span>
+      <span><input type="number" data-s="rows" min="1" max="30" value="3"> × <input type="number" data-s="cols" min="1" max="12" value="3"></span></label>
+    <label class="row"><span>Nummerierung</span>
+      <select data-s="order"><option value="row">zeilenweise →</option><option value="col">spaltenweise ↓</option></select></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>3 · Format &amp; Ausgabe</legend>
+    <label class="row"><span>Breite</span>
+      <select data-s="widthPreset">
+        <option value="8.5">8,5 cm: einspaltig (ACS/RSC)</option>
+        <option value="17" selected>17 cm: volle Breite / Word A4</option>
+        <option value="custom">benutzerdefiniert</option>
+      </select></label>
+    <label class="row sub"><span>Breite [cm]</span><input type="number" data-s="widthCm" step="0.1" min="2" max="40" value="17"></label>
+    <label class="row"><span>max. Höhe [cm] (0 = aus)</span><input type="number" data-s="maxHCm" step="0.5" min="0" max="60" value="24"></label>
+    <p class="hint">A4 mit 2,5 cm Rand: Satzspiegel ca. 16 × 24,7 cm. Wird die Collage zu hoch, wird die Breite automatisch verkleinert.</p>
+    <label class="row"><span>Auflösung</span>
+      <select data-s="dpi"><option>300</option><option selected>600</option><option>1200</option></select></label>
+    <label class="row"><span>Abstand zwischen Bildern [mm]</span><input type="number" data-s="gapMm" step="0.1" min="0" max="10" value="1"></label>
+    <label class="row"><span>Dateiformat</span>
+      <select data-s="format"><option value="jpeg" selected>JPEG 95 % (empfohlen für Fotos)</option><option value="png">PNG (verlustfrei, sehr groß)</option></select></label>
+    <label class="row"><span>Schrift</span>
+      <select data-s="font"><option value="Arial, Helvetica, sans-serif">Arial / Helvetica</option><option value="Calibri, Carlito, sans-serif">Calibri</option><option value="'Times New Roman', Times, serif">Times New Roman</option></select></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>4 · Zuschnitt</legend>
+    <label class="row"><span>Seitenverhältnis</span>
+      <select data-s="aspect">
+        <option value="orig">Original (kein Zuschnitt)</option>
+        <option value="1">1:1 (quadratisch)</option>
+        <option value="1.3333">4:3</option>
+        <option value="1.5">3:2</option>
+        <option value="1.7778">16:9</option>
+        <option value="0.75">3:4 (hoch)</option>
+      </select></label>
+    <label class="row"><span>Zoom (Ausschnitt)</span><input type="number" data-s="zoom" step="0.05" min="1" max="5" value="1"></label>
+    <label class="row"><span>Position horizontal [%]</span><input type="number" data-s="ax" min="0" max="100" value="50"></label>
+    <label class="row"><span>Position vertikal [%]</span><input type="number" data-s="ay" min="0" max="100" value="50"></label>
+    <p class="hint">50/50 = Center-Crop. 0 = links bzw. oben, 100 = rechts bzw. unten.
+      <b>Achtung:</b> Ein Zuschnitt kann den eingebrannten Maßstab anschneiden. Dann den Balken unten neu einblenden.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>5 · Panel-Beschriftung</legend>
+    <label class="row"><span>Anzeigen</span><input type="checkbox" data-s="labels" checked></label>
+    <label class="row"><span>Stil</span>
+      <select data-s="labelStyle"><option value="(a)">(a)</option><option value="a">a</option><option value="a)">a)</option><option value="A">A</option></select></label>
+    <label class="row"><span>Beginnen bei</span><input type="text" data-s="labelStart" value="a" maxlength="2" style="width:50px"></label>
+    <label class="row"><span>Schriftgröße [pt]</span><input type="number" data-s="labelPt" step="0.5" min="4" max="30" value="10"></label>
+    <label class="row"><span>Position</span>
+      <select data-s="labelPos"><option value="in">im Bild, oben links</option><option value="out">über dem Bild</option></select></label>
+    <label class="row"><span>Farbe</span>
+      <select data-s="labelColor"><option value="#ffffff">weiß</option><option value="#000000">schwarz</option></select></label>
+    <label class="row"><span>Hinterlegter Kasten</span><input type="checkbox" data-s="labelBox"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>6 · Maßstabsbalken (neu einblenden)</legend>
+    <label class="row"><span>Anzeigen</span><input type="checkbox" data-s="sb"></label>
+    <label class="row"><span>Kalibrierung [µm/Pixel]</span><input type="number" data-s="umPerPx" step="0.001" min="0" value="1.497"></label>
+    <p class="hint">Bezogen auf das <b>Originalbild</b>. Bei deinen 2000-px-Mikroskopbildern ist 0,5 mm ≈ 334 px, also 1,497 µm/px.
+      Bei anderen Objektiven oder Vergrößerungen bitte anpassen.</p>
+    <label class="row"><span>Länge</span>
+      <select data-s="sbLenMode"><option value="auto">automatisch</option><option value="fix">fester Wert</option></select></label>
+    <label class="row sub"><span>Länge [µm]</span><input type="number" data-s="sbLen" min="0" step="any" value="500"></label>
+    <label class="row"><span>Einheit</span>
+      <select data-s="sbUnit"><option value="auto">automatisch</option><option value="um">µm</option><option value="mm">mm</option></select></label>
+    <label class="row"><span>Dezimalkomma (0,5 statt 0.5)</span><input type="checkbox" data-s="comma" checked></label>
+    <label class="row"><span>In welchen Panels</span>
+      <select data-s="sbWhere"><option value="all">alle</option><option value="last">nur letztes</option><option value="first">nur erstes</option></select></label>
+    <label class="row"><span>Schriftgröße [pt]</span><input type="number" data-s="sbPt" step="0.5" min="4" max="30" value="8"></label>
+    <label class="row"><span>Balkenstärke [pt]</span><input type="number" data-s="sbThick" step="0.25" min="0.25" max="10" value="1.5"></label>
+    <label class="row"><span>Farbe</span>
+      <select data-s="sbColor"><option value="#ffffff">weiß</option><option value="#000000">schwarz</option></select></label>
+    <label class="row"><span>Hinterlegter Kasten</span><input type="checkbox" data-s="sbBox"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>7 · Zeilen- &amp; Spaltentitel (optional)</legend>
+    <label class="row"><span>Spaltentitel (eine Zeile je Spalte)</span></label>
+    <textarea data-s="colTitles" rows="3" placeholder="z. B.&#10;Unterpunkt 1&#10;Unterpunkt 2&#10;Unterpunkt 3"></textarea>
+    <label class="row"><span>Zeilentitel (eine Zeile je Zeile)</span></label>
+    <textarea data-s="rowTitles" rows="3" placeholder="z. B.&#10;Probe 1.1&#10;Probe 1.2&#10;Probe 1.3"></textarea>
+    <label class="row"><span>Schriftgröße [pt]</span><input type="number" data-s="titlePt" step="0.5" min="4" max="30" value="9"></label>
+    <label class="row"><span>Fett</span><input type="checkbox" data-s="titleBold"></label>
+  </fieldset>
+
+  <div class="btnrow">
+    <button id="resetSettings">Einstellungen zurücksetzen</button>
+  </div>
+</aside>
+
+<section class="view">
+  <div class="btnrow" style="margin:0 0 10px">
+    <button class="primary" id="export">Collage exportieren</button>
+  </div>
+  <div id="info">Noch keine Bilder geladen.</div>
+  <canvas id="preview" width="10" height="10"></canvas>
+</section>
+</main>
+
+<script>
+"use strict";
+/* ---------------- State ---------------- */
+const items = [];   // {name, img (HTMLImageElement) | null for empty, url}
+const DEFAULTS = {};
+const $ = s => document.querySelector(s);
+const settingEls = [...document.querySelectorAll("[data-s]")];
+settingEls.forEach(el => DEFAULTS[el.dataset.s] = el.type === "checkbox" ? el.checked : el.value);
+const STORE_KEY = "collage-settings-v1";
+
+function getS() {
+  const s = {};
+  for (const el of settingEls) {
+    const k = el.dataset.s;
+    if (el.type === "checkbox") s[k] = el.checked;
+    else if (el.type === "number") s[k] = parseFloat(el.value);
+    else s[k] = el.value;
+  }
+  return s;
+}
+function applyS(obj) {
+  for (const el of settingEls) {
+    const k = el.dataset.s;
+    if (!(k in obj)) continue;
+    if (el.type === "checkbox") el.checked = !!obj[k]; else el.value = obj[k];
+  }
+}
+try { applyS(JSON.parse(localStorage.getItem(STORE_KEY) || "{}")); } catch (e) {}
+
+/* ---------------- Presets ---------------- */
+const PRESETS = [[1,2],[1,3],[2,2],[2,3],[3,2],[3,3],[3,1],[4,3],[9,3],[3,9]];
+const presetBox = $("#presets");
+const autoBtn = document.createElement("button");
+autoBtn.textContent = "auto"; autoBtn.title = "Raster passend zur Bildanzahl";
+autoBtn.onclick = () => { autoGrid(); update(); };
+presetBox.appendChild(autoBtn);
+for (const [r, c] of PRESETS) {
+  const b = document.createElement("button");
+  b.textContent = `${r}×${c}`;
+  b.onclick = () => { setGrid(r, c); update(); };
+  presetBox.appendChild(b);
+}
+function setGrid(r, c) {
+  document.querySelector('[data-s="rows"]').value = r;
+  document.querySelector('[data-s="cols"]').value = c;
+}
+function autoGrid() {
+  const n = Math.max(1, items.length);
+  const c = n <= 3 ? n : (n === 4 ? 2 : 3);
+  setGrid(Math.ceil(n / c), c);
+}
+
+/* ---------------- Image loading ---------------- */
+const drop = $("#drop"), fileIn = $("#file");
+drop.onclick = () => fileIn.click();
+fileIn.onchange = () => { addFiles(fileIn.files); fileIn.value = ""; };
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); });
+
+const natCmp = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+
+async function addFiles(fileList) {
+  const files = [...fileList].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|bmp|webp|gif)$/i.test(f.name));
+  files.sort((a, b) => natCmp(a.name, b.name));
+  const wasEmpty = items.length === 0;
+  const skipped = [];
+  for (const f of files) {
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    try {
+      img.src = url;
+      await img.decode();
+      items.push({ name: f.name, img, url });
+    } catch (e) {
+      skipped.push(f.name); URL.revokeObjectURL(url);
+    }
+  }
+  if (skipped.length) alert("Konnte nicht gelesen werden (TIFF wird von Browsern meist nicht unterstützt):\n" + skipped.join("\n"));
+  if (wasEmpty && items.length) autoGrid();
+  update();
+}
+
+$("#sortName").onclick = () => { items.sort((a, b) => natCmp(a.name || "~", b.name || "~")); update(); };
+$("#addEmpty").onclick = () => { items.push({ name: "", img: null }); update(); };
+$("#clearAll").onclick = () => { items.forEach(i => i.url && URL.revokeObjectURL(i.url)); items.length = 0; update(); };
+$("#resetSettings").onclick = () => { applyS(DEFAULTS); localStorage.removeItem(STORE_KEY); update(); };
+
+/* ---------------- Labels ---------------- */
+function letterIndex(str) {          // "a"->0, "z"->25, "aa"->26
+  str = (str || "a").toLowerCase().replace(/[^a-z]/g, "") || "a";
+  let n = 0; for (const ch of str) n = n * 26 + (ch.charCodeAt(0) - 96);
+  return n - 1;
+}
+function letters(n) {                // 0->"a", 26->"aa"
+  let s = ""; n += 1;
+  while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(97 + m) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+function labelText(i, s) {
+  const l = letters(letterIndex(s.labelStart) + i);
+  switch (s.labelStyle) {
+    case "(a)": return `(${l})`;
+    case "a)":  return `${l})`;
+    case "A":   return l.toUpperCase();
+    default:    return l;
+  }
+}
+
+/* ---------------- Thumbnails ---------------- */
+let dragFrom = null;
+function renderThumbs(s) {
+  const box = $("#thumbs"); box.innerHTML = "";
+  items.forEach((it, i) => {
+    const d = document.createElement("div");
+    d.className = "thumb" + (it.img ? "" : " empty");
+    d.draggable = true;
+    if (it.img) { const im = document.createElement("img"); im.src = it.url; d.appendChild(im); }
+    else d.appendChild(document.createTextNode("leer"));
+    const lb = document.createElement("div"); lb.className = "lbl"; lb.textContent = labelText(i, s); d.appendChild(lb);
+    if (it.name) { const nm = document.createElement("div"); nm.className = "name"; nm.textContent = it.name; nm.title = it.name; d.appendChild(nm); }
+    const x = document.createElement("button"); x.className = "del"; x.textContent = "×"; x.title = "entfernen";
+    x.onclick = ev => { ev.stopPropagation(); if (it.url) URL.revokeObjectURL(it.url); items.splice(i, 1); update(); };
+    d.appendChild(x);
+    d.addEventListener("dragstart", () => { dragFrom = i; });
+    d.addEventListener("dragover", e => { e.preventDefault(); d.classList.add("dragover"); });
+    d.addEventListener("dragleave", () => d.classList.remove("dragover"));
+    d.addEventListener("drop", e => {
+      e.preventDefault(); e.stopPropagation(); d.classList.remove("dragover");
+      if (dragFrom === null || dragFrom === i) return;
+      const [m] = items.splice(dragFrom, 1); items.splice(i, 0, m); dragFrom = null; update();
+    });
+    box.appendChild(d);
+  });
+}
+
+/* ---------------- Layout & rendering ---------------- */
+function niceLength(um) {            // largest value of the 1-2-5 series <= 1.15 * target
+  const t = um * 1.15;
+  const p = Math.pow(10, Math.floor(Math.log10(t)));
+  const f = t / p;
+  return (f >= 5 ? 5 : f >= 2 ? 2 : 1) * p;
+}
+function fmtNum(v, comma) {
+  const s = String(parseFloat(v.toPrecision(6)));
+  return comma ? s.replace(".", ",") : s;
+}
+function scaleText(um, s) {
+  const unit = s.sbUnit === "auto" ? (um >= 1000 ? "mm" : "um") : s.sbUnit;
+  return unit === "mm" ? `${fmtNum(um / 1000, s.comma)} mm` : `${fmtNum(um, s.comma)} µm`;
+}
+function lines(t) { return (t || "").split(/\r?\n/).map(x => x.trim()); }
+
+function layout(s, dpi) {
+  const mm = dpi / 25.4, pt = dpi / 72;
+  const rows = Math.max(1, s.rows | 0), cols = Math.max(1, s.cols | 0);
+  const W = (s.widthPreset === "custom" ? s.widthCm : parseFloat(s.widthPreset)) * 10 * mm;
+  const gap = Math.max(0, s.gapMm) * mm;
+  const colT = lines(s.colTitles), rowT = lines(s.rowTitles);
+  const hasColT = colT.some(Boolean), hasRowT = rowT.some(Boolean);
+  const titleH = s.titlePt * pt * 1.6;
+  const top = hasColT ? titleH : 0, left = hasRowT ? titleH : 0;
+  const lb = s.labels && s.labelPos === "out" ? s.labelPt * pt * 1.45 : 0;
+  const first = items.find(i => i.img);
+  const aspect = s.aspect === "orig" ? (first ? first.img.naturalWidth / first.img.naturalHeight : 4 / 3) : parseFloat(s.aspect);
+  let cellW = (W - left - (cols - 1) * gap) / cols;
+  let Wout = W, limited = false;
+  if (s.maxHCm > 0) {                  // shrink width if the figure would be taller than allowed
+    const cellWmax = (s.maxHCm * 10 * mm - top - rows * lb - (rows - 1) * gap) * aspect / rows;
+    if (cellWmax > 0 && cellW > cellWmax) { cellW = cellWmax; Wout = left + cols * cellW + (cols - 1) * gap; limited = true; }
+  }
+  const cellH = cellW / aspect;
+  const H = top + rows * (lb + cellH) + (rows - 1) * gap;
+  return { mm, pt, rows, cols, W: Wout, H, gap, colT, rowT, top, left, lb, cellW, cellH, aspect, titleH, limited };
+}
+
+function cropRect(img, s, ta) {
+  const iw = img.naturalWidth, ih = img.naturalHeight, z = Math.max(1, s.zoom || 1);
+  let sw, sh;
+  if (iw / ih > ta) { sh = ih / z; sw = sh * ta; } else { sw = iw / z; sh = sw / ta; }
+  const ax = Math.min(100, Math.max(0, s.ax)) / 100, ay = Math.min(100, Math.max(0, s.ay)) / 100;
+  return { sx: (iw - sw) * ax, sy: (ih - sh) * ay, sw, sh };
+}
+
+function textWithBox(ctx, text, x, y, color, box, padX, padY, align) {
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const m = ctx.measureText(text);
+  const w = m.width, h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+  let bx = align === "right" ? x - w : align === "center" ? x - w / 2 : x;
+  if (box) {
+    ctx.fillStyle = color === "#ffffff" ? "#000000" : "#ffffff";
+    ctx.fillRect(bx - padX, y - padY, w + 2 * padX, h + 2 * padY);
+  }
+  ctx.fillStyle = color;
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(text, bx, y + m.actualBoundingBoxAscent);
+  return { w, h };
+}
+
+function render(canvas, dpi) {
+  const s = getS();
+  const L = layout(s, dpi);
+  canvas.width = Math.max(1, Math.round(L.W));
+  canvas.height = Math.max(1, Math.round(L.H));
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  const F = s.font;
+  const n = L.rows * L.cols;
+  const pad = 1.0 * L.mm;              // inner margin for labels / scale bars
+  const effDpi = [];
+
+  // Titles
+  ctx.fillStyle = "#000";
+  ctx.font = `${s.titleBold ? "bold " : ""}${s.titlePt * L.pt}px ${F}`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (let c = 0; c < L.cols; c++) if (L.colT[c])
+    ctx.fillText(L.colT[c], L.left + c * (L.cellW + L.gap) + L.cellW / 2, L.top / 2);
+  for (let r = 0; r < L.rows; r++) if (L.rowT[r]) {
+    const cy = L.top + r * (L.lb + L.cellH + L.gap) + L.lb + L.cellH / 2;
+    ctx.save(); ctx.translate(L.left / 2, cy); ctx.rotate(-Math.PI / 2); ctx.fillText(L.rowT[r], 0, 0); ctx.restore();
+  }
+
+  const lastIdx = Math.min(items.length, n) - 1;
+  for (let i = 0; i < Math.min(items.length, n); i++) {
+    const r = s.order === "row" ? Math.floor(i / L.cols) : i % L.rows;
+    const c = s.order === "row" ? i % L.cols : Math.floor(i / L.rows);
+    const x = L.left + c * (L.cellW + L.gap);
+    const yTop = L.top + r * (L.lb + L.cellH + L.gap);
+    const y = yTop + L.lb;
+    const it = items[i];
+    if (!it.img) continue;              // empty cell: no image, no label
+
+    const cr = cropRect(it.img, s, L.cellW / L.cellH);
+    ctx.drawImage(it.img, cr.sx, cr.sy, cr.sw, cr.sh, x, y, L.cellW, L.cellH);
+    effDpi.push(cr.sw / (L.cellW / dpi));
+
+    // Panel label
+    if (s.labels) {
+      ctx.font = `bold ${s.labelPt * L.pt}px ${F}`;
+      const t = labelText(i, s);
+      if (s.labelPos === "in") textWithBox(ctx, t, x + pad, y + pad, s.labelColor, s.labelBox, 0.4 * L.mm, 0.4 * L.mm, "left");
+      else { ctx.fillStyle = "#000"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(t, x, y - 0.3 * L.lb); }
+    }
+
+    // Scale bar
+    const showSb = s.sb && s.umPerPx > 0 &&
+      (s.sbWhere === "all" || (s.sbWhere === "last" && i === lastIdx) || (s.sbWhere === "first" && i === 0));
+    if (showSb) {
+      const pxPerSrc = L.cellW / cr.sw;
+      const umLen = s.sbLenMode === "fix" && s.sbLen > 0 ? s.sbLen : niceLength(0.22 * cr.sw * s.umPerPx);
+      const barW = umLen / s.umPerPx * pxPerSrc;
+      const th = s.sbThick * L.pt;
+      ctx.font = `${s.sbPt * L.pt}px ${F}`;
+      ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      const txt = scaleText(umLen, s);
+      const m = ctx.measureText(txt);
+      const tH = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+      const tGap = 0.6 * L.mm;
+      const right = x + L.cellW - pad - 0.6 * L.mm, bottom = y + L.cellH - pad - 0.6 * L.mm;
+      const bx = right - barW, by = bottom - th;
+      if (s.sbBox) {
+        const w = Math.max(barW, m.width);
+        ctx.fillStyle = s.sbColor === "#ffffff" ? "#000000" : "#ffffff";
+        ctx.fillRect(right - w - 0.6 * L.mm, bottom - th - tGap - tH - 0.6 * L.mm, w + 1.2 * L.mm, th + tGap + tH + 1.2 * L.mm);
+      }
+      ctx.fillStyle = s.sbColor;
+      ctx.fillRect(bx, by, barW, th);
+      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      const cx = Math.min(bx + barW / 2, right - m.width / 2);
+      ctx.fillText(txt, cx, by - tGap - m.actualBoundingBoxDescent);
+    }
+  }
+  return { L, s, effDpi, n };
+}
+
+/* ---------------- UI update ---------------- */
+const preview = $("#preview");
+let pending = false;
+function update() {
+  if (pending) return; pending = true;
+  requestAnimationFrame(() => {
+    pending = false;
+    const s = getS();
+    localStorage.setItem(STORE_KEY, JSON.stringify(s));
+    document.querySelector('[data-s="widthCm"]').closest("label").style.display = s.widthPreset === "custom" ? "" : "none";
+    document.querySelector('[data-s="sbLen"]').closest("label").style.display = s.sbLenMode === "fix" ? "" : "none";
+    renderThumbs(s);
+    // Preview resolution: max ~1600 px wide
+    const widthIn = (s.widthPreset === "custom" ? s.widthCm : parseFloat(s.widthPreset)) / 2.54;
+    const pDpi = Math.min(+s.dpi, 1600 / widthIn);
+    const res = render(preview, pDpi);
+    const Lx = layout(s, +s.dpi);
+    const imgs = items.filter(i => i.img).length;
+    const cm = v => (v / Lx.mm / 10).toFixed(1).replace(".", ",");
+    let html = `Endgröße: <b>${cm(Lx.W)} × ${cm(Lx.H)} cm</b> · ${Math.round(Lx.W)} × ${Math.round(Lx.H)} px bei ${s.dpi} dpi · ` +
+               `Panel: ${cm(Lx.cellW)} × ${cm(Lx.cellH)} cm · Bilder: ${imgs} / Felder: ${res.n}`;
+    if (Lx.limited) html += `<br><span class="warn">Breite wegen max. Höhe auf ${cm(Lx.W)} cm reduziert.</span>`;
+    if (items.length > res.n) html += `<br><span class="warn">${items.length - res.n} Bild(er) passen nicht ins Raster und werden nicht angezeigt.</span>`;
+    if (res.effDpi.length) {
+      const minEff = Math.min(...res.effDpi);   // source px per inch of printed panel (independent of preview dpi)
+      html += `<br>Effektive Bildauflösung: ≈ ${Math.round(minEff)} dpi` +
+        (minEff < 300 ? ` <span class="warn">(unter 300 dpi: Bilder werden hochskaliert, ggf. weniger Spalten/Zoom wählen)</span>` : "");
+    }
+    if (s.sb && s.aspect === "orig" && s.zoom <= 1) html += `<br><span class="warn">Hinweis: Die Bilder enthalten evtl. bereits einen eingebrannten Maßstab, dann wäre er doppelt.</span>`;
+    $("#info").innerHTML = html;
+  });
+}
+settingEls.forEach(el => el.addEventListener("input", update));
+
+/* ---------------- Export with DPI metadata ---------------- */
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+
+function pngWithDpi(buf, dpi) {
+  const src = new Uint8Array(buf);
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21);
+  const dv = new DataView(chunk.buffer);
+  dv.setUint32(0, 9);
+  chunk.set([0x70, 0x48, 0x59, 0x73], 4);               // "pHYs"
+  dv.setUint32(8, ppm); dv.setUint32(12, ppm); chunk[16] = 1; // unit: metre
+  dv.setUint32(17, crc32(chunk.subarray(4, 17)));
+  const ihdrEnd = 8 + 4 + 4 + 13 + 4;                   // signature + IHDR chunk
+  const out = new Uint8Array(src.length + 21);
+  out.set(src.subarray(0, ihdrEnd), 0); out.set(chunk, ihdrEnd); out.set(src.subarray(ihdrEnd), ihdrEnd + 21);
+  return out;
+}
+function jpegWithDpi(buf, dpi) {
+  const src = new Uint8Array(buf);
+  const d = Math.min(65535, Math.round(dpi));
+  // Existing JFIF APP0 segment directly after SOI?
+  if (src[2] === 0xFF && src[3] === 0xE0 && String.fromCharCode(...src.subarray(6, 10)) === "JFIF") {
+    src[13] = 1; src[14] = d >> 8; src[15] = d & 255; src[16] = d >> 8; src[17] = d & 255;
+    return src;
+  }
+  const app0 = new Uint8Array([0xFF,0xE0,0,16,0x4A,0x46,0x49,0x46,0,1,1,1,d>>8,d&255,d>>8,d&255,0,0]);
+  const out = new Uint8Array(src.length + app0.length);
+  out.set(src.subarray(0, 2)); out.set(app0, 2); out.set(src.subarray(2), 2 + app0.length);
+  return out;
+}
+
+$("#export").onclick = async () => {
+  if (!items.some(i => i.img)) { alert("Bitte zuerst Bilder laden."); return; }
+  const s = getS(), dpi = +s.dpi;
+  const btn = $("#export"); btn.disabled = true; btn.textContent = "Wird erstellt …";
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    const cv = document.createElement("canvas");
+    render(cv, dpi);
+    const type = s.format === "jpeg" ? "image/jpeg" : "image/png";
+    const blob = await new Promise(r => cv.toBlob(r, type, 0.95));
+    if (!blob) throw new Error("Canvas zu groß für den Browser. Bitte Auflösung reduzieren.");
+    const buf = await blob.arrayBuffer();
+    const data = s.format === "jpeg" ? jpegWithDpi(buf, dpi) : pngWithDpi(buf, dpi);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+    a.href = URL.createObjectURL(new Blob([data], { type }));
+    a.download = `collage_${s.rows}x${s.cols}_${dpi}dpi_${stamp}.${s.format === "jpeg" ? "jpg" : "png"}`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e) { alert("Export fehlgeschlagen: " + e.message); }
+  finally { btn.disabled = false; btn.textContent = "Collage exportieren"; }
+};
+
+update();
+</script>
+</body>
+</html>
