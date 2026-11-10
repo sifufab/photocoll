@@ -25,7 +25,7 @@ Die Einstellungen werden im Browser gespeichert (localStorage), die Bilder nicht
 | Breite | Word A4 hoch 16 cm, A4 quer 24,7 cm (Standardränder 2,5 cm); Journal 8,5 cm bzw. 17 cm |
 | Auflösung | 600 dpi (Fotos: mind. 300 dpi, kombinierte Grafiken: 600 dpi) |
 | Schrift | Arial/Helvetica, Panel-Buchstaben 10 pt fett, Maßstab 8 pt (im Druck nie unter ca. 6 pt) |
-| Panel-Buchstaben | (a), (b), … oben links |
+| Panel-Buchstaben | (a), (b), … oben links, weiß mit schwarzer Kontur |
 | Format | JPEG 95 % (PNG optional, aber 5–10× größer) |
 
 ## Querformat-Seite mit Hochformat-Fotos
@@ -65,6 +65,18 @@ HEIC-Dateien können direkt hineingezogen werden:
   Fehlt die Datei (z. B. wenn nur `index.html` heruntergeladen wurde), wird er von cdn.jsdelivr.net geladen. Dafür ist Internet nötig.
 
 Lizenz: heic-to und libheif stehen unter der LGPL-3.0 (siehe `vendor/heic-to.LICENSE`). Die Datei ist unverändert übernommen (Version 1.6.7).
+
+## Lesbarkeit von Beschriftung und Maßstab
+
+Für Panel-Buchstaben und Maßstabsbalken lassen sich Farbe und Hervorhebung getrennt einstellen:
+
+- **Farbe:** weiß, schwarz, **automatisch** (pro Bild wird die Helligkeit an der Textstelle gemessen und Schwarz oder Weiß gewählt)
+  oder eine **eigene Farbe**, z. B. Gelb.
+- **Hervorhebung:** **Kontur** (Standard: Text mit Rand in der Gegenfarbe, auf jedem Untergrund lesbar), Schatten,
+  Kasten deckend, Kasten halbtransparent oder ohne.
+- **Position** der Buchstaben: oben links, oben rechts, unten links oder über dem Bild.
+
+Empfehlung bei gemischt hellen und dunklen Bildern: weiß oder automatisch, jeweils mit Kontur.
 
 ## Kalibrierung des Maßstabsbalkens
 

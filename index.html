@@ -150,10 +150,14 @@
     <label class="row"><span>Beginnen bei</span><input type="text" data-s="labelStart" value="a" maxlength="2" style="width:50px"></label>
     <label class="row"><span>Schriftgröße [pt]</span><input type="number" data-s="labelPt" step="0.5" min="4" max="30" value="10"></label>
     <label class="row"><span>Position</span>
-      <select data-s="labelPos"><option value="in">im Bild, oben links</option><option value="out">über dem Bild</option></select></label>
+      <select data-s="labelPos"><option value="in">im Bild, oben links</option><option value="in-tr">im Bild, oben rechts</option><option value="in-bl">im Bild, unten links</option><option value="out">über dem Bild</option></select></label>
     <label class="row"><span>Farbe</span>
-      <select data-s="labelColor"><option value="#ffffff">weiß</option><option value="#000000">schwarz</option></select></label>
-    <label class="row"><span>Hinterlegter Kasten</span><input type="checkbox" data-s="labelBox"></label>
+      <select data-s="labelColor"><option value="#ffffff">weiß</option><option value="#000000">schwarz</option><option value="auto">automatisch (je Bild nach Helligkeit)</option><option value="custom">eigene Farbe</option></select></label>
+    <label class="row sub"><span>Eigene Farbe</span><input type="color" data-s="labelCustom" value="#ffd400"></label>
+    <label class="row"><span>Hervorhebung</span>
+      <select data-s="labelFx"><option value="outline" selected>Kontur (empfohlen)</option><option value="shadow">Schatten</option><option value="box">Kasten deckend</option><option value="boxsemi">Kasten halbtransparent</option><option value="none">ohne</option></select></label>
+    <p class="hint">Kontur, Schatten und Kasten nutzen automatisch die Gegenfarbe (Schwarz zu hellem Text, Weiß zu dunklem Text).
+      Bei „über dem Bild“ ist der Text immer schwarz ohne Hervorhebung.</p>
   </fieldset>
 
   <fieldset>
@@ -173,8 +177,10 @@
     <label class="row"><span>Schriftgröße [pt]</span><input type="number" data-s="sbPt" step="0.5" min="4" max="30" value="8"></label>
     <label class="row"><span>Balkenstärke [pt]</span><input type="number" data-s="sbThick" step="0.25" min="0.25" max="10" value="1.5"></label>
     <label class="row"><span>Farbe</span>
-      <select data-s="sbColor"><option value="#ffffff">weiß</option><option value="#000000">schwarz</option></select></label>
-    <label class="row"><span>Hinterlegter Kasten</span><input type="checkbox" data-s="sbBox"></label>
+      <select data-s="sbColor"><option value="#ffffff">weiß</option><option value="#000000">schwarz</option><option value="auto">automatisch (je Bild nach Helligkeit)</option><option value="custom">eigene Farbe</option></select></label>
+    <label class="row sub"><span>Eigene Farbe</span><input type="color" data-s="sbCustom" value="#ffd400"></label>
+    <label class="row"><span>Hervorhebung</span>
+      <select data-s="sbFx"><option value="outline" selected>Kontur (empfohlen)</option><option value="shadow">Schatten</option><option value="box">Kasten deckend</option><option value="boxsemi">Kasten halbtransparent</option><option value="none">ohne</option></select></label>
   </fieldset>
 
   <fieldset>
@@ -476,19 +482,60 @@ function cropRect(src, s, ta) {
   return { sx: (iw - sw) * ax, sy: (ih - sh) * ay, sw, sh };
 }
 
-function textWithBox(ctx, text, x, y, color, box, padX, padY, align) {
+/* ---- Text/scale-bar styling: colour (fixed, custom, auto by brightness) + effect ---- */
+function hexLum(hex) {
+  const v = parseInt((hex || "#ffffff").slice(1), 16);
+  const r = (v >> 16) & 255, g = (v >> 8) & 255, b = v & 255;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+const contrastOf = hex => hexLum(hex) > 0.5 ? "#000000" : "#ffffff";
+// Mean brightness of the already drawn image below a rectangle → black or white
+function autoColor(ctx, x, y, w, h) {
+  const X = Math.max(0, Math.floor(x)), Y = Math.max(0, Math.floor(y));
+  const W = Math.max(1, Math.min(ctx.canvas.width - X, Math.ceil(w))), H = Math.max(1, Math.min(ctx.canvas.height - Y, Math.ceil(h)));
+  const d = ctx.getImageData(X, Y, W, H).data;
+  const step = Math.max(1, Math.floor(d.length / 4 / 4000)) * 4;   // sample ≤ ~4000 pixels
+  let sum = 0, n = 0;
+  for (let i = 0; i < d.length; i += step) { sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; n++; }
+  return sum / n / 255 > 0.55 ? "#000000" : "#ffffff";
+}
+function resolveColor(mode, custom, ctx, rect) {
+  if (mode === "auto") return autoColor(ctx, rect.x, rect.y, rect.w, rect.h);
+  if (mode === "custom") return custom || "#ffd400";
+  return mode || "#ffffff";
+}
+function withAlpha(hex, a) {
+  const v = parseInt(hex.slice(1), 16);
+  return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${a})`;
+}
+// Background (box) for a rectangle, drawn before the content
+function drawFxBox(ctx, fx, rect, color, pad) {
+  if (fx !== "box" && fx !== "boxsemi") return;
+  ctx.fillStyle = withAlpha(contrastOf(color), fx === "box" ? 1 : 0.6);
+  ctx.fillRect(rect.x - pad, rect.y - pad, rect.w + 2 * pad, rect.h + 2 * pad);
+}
+// Text at top-left (x, yTop) with effect
+function drawFxText(ctx, text, x, yTop, ascent, color, fx, fontPx) {
+  const c2 = contrastOf(color), yb = yTop + ascent;
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-  const m = ctx.measureText(text);
-  const w = m.width, h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
-  let bx = align === "right" ? x - w : align === "center" ? x - w / 2 : x;
-  if (box) {
-    ctx.fillStyle = color === "#ffffff" ? "#000000" : "#ffffff";
-    ctx.fillRect(bx - padX, y - padY, w + 2 * padX, h + 2 * padY);
+  if (fx === "outline") {
+    ctx.lineJoin = "round"; ctx.miterLimit = 2;
+    ctx.lineWidth = fontPx * 0.18; ctx.strokeStyle = c2; ctx.strokeText(text, x, yb);
+  } else if (fx === "shadow") {
+    ctx.save(); ctx.shadowColor = withAlpha(c2, 0.95); ctx.shadowBlur = fontPx * 0.22;
+    ctx.fillStyle = color; ctx.fillText(text, x, yb); ctx.fillText(text, x, yb); ctx.restore();
   }
-  ctx.fillStyle = color;
-  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-  ctx.fillText(text, bx, y + m.actualBoundingBoxAscent);
-  return { w, h };
+  ctx.fillStyle = color; ctx.fillText(text, x, yb);
+}
+// Filled rectangle (scale bar) with effect
+function drawFxRect(ctx, x, y, w, h, color, fx, k) {
+  const c2 = contrastOf(color);
+  if (fx === "outline") { ctx.fillStyle = c2; ctx.fillRect(x - k, y - k, w + 2 * k, h + 2 * k); }
+  else if (fx === "shadow") {
+    ctx.save(); ctx.shadowColor = withAlpha(c2, 0.95); ctx.shadowBlur = k * 2.5; ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h); ctx.restore();
+  }
+  ctx.fillStyle = color; ctx.fillRect(x, y, w, h);
 }
 
 function render(canvas, dpi) {
@@ -534,8 +581,18 @@ function render(canvas, dpi) {
     if (s.labels) {
       ctx.font = `bold ${s.labelPt * L.pt}px ${F}`;
       const t = labelText(i, s);
-      if (s.labelPos === "in") textWithBox(ctx, t, x + pad, y + pad, s.labelColor, s.labelBox, 0.4 * L.mm, 0.4 * L.mm, "left");
-      else { ctx.fillStyle = "#000"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(t, x, y - 0.3 * L.lb); }
+      if (s.labelPos !== "out") {
+        const fontPx = s.labelPt * L.pt;
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+        const m = ctx.measureText(t);
+        const asc = m.actualBoundingBoxAscent, h = asc + m.actualBoundingBoxDescent;
+        const lx = s.labelPos === "in-tr" ? x + L.cellW - pad - m.width : x + pad;
+        const ly = s.labelPos === "in-bl" ? y + L.cellH - pad - h : y + pad;
+        const rect = { x: lx, y: ly, w: m.width, h };
+        const col = resolveColor(s.labelColor, s.labelCustom, ctx, rect);
+        drawFxBox(ctx, s.labelFx, rect, col, 0.4 * L.mm);
+        drawFxText(ctx, t, lx, ly, asc, col, s.labelFx, fontPx);
+      } else { ctx.fillStyle = "#000"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(t, x, y - 0.3 * L.lb); }
     }
 
     // Scale bar
@@ -554,16 +611,13 @@ function render(canvas, dpi) {
       const tGap = 0.6 * L.mm;
       const right = x + L.cellW - pad - 0.6 * L.mm, bottom = y + L.cellH - pad - 0.6 * L.mm;
       const bx = right - barW, by = bottom - th;
-      if (s.sbBox) {
-        const w = Math.max(barW, m.width);
-        ctx.fillStyle = s.sbColor === "#ffffff" ? "#000000" : "#ffffff";
-        ctx.fillRect(right - w - 0.6 * L.mm, bottom - th - tGap - tH - 0.6 * L.mm, w + 1.2 * L.mm, th + tGap + tH + 1.2 * L.mm);
-      }
-      ctx.fillStyle = s.sbColor;
-      ctx.fillRect(bx, by, barW, th);
-      ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      const wAll = Math.max(barW, m.width);
+      const rect = { x: right - wAll, y: by - tGap - tH, w: wAll, h: th + tGap + tH };
+      const col = resolveColor(s.sbColor, s.sbCustom, ctx, rect);
+      drawFxBox(ctx, s.sbFx, rect, col, 0.6 * L.mm);
+      drawFxRect(ctx, bx, by, barW, th, col, s.sbFx, Math.max(1, s.sbPt * L.pt * 0.09));
       const cx = Math.min(bx + barW / 2, right - m.width / 2);
-      ctx.fillText(txt, cx, by - tGap - m.actualBoundingBoxDescent);
+      drawFxText(ctx, txt, cx - m.width / 2, by - tGap - tH, m.actualBoundingBoxAscent, col, s.sbFx, s.sbPt * L.pt);
     }
   }
   return { L, s, effDpi, n };
@@ -581,6 +635,8 @@ function update() {
     localStorage.setItem(STORE_KEY, JSON.stringify(s));
     document.querySelector('[data-s="widthCm"]').closest("label").style.display = s.widthPreset === "custom" ? "" : "none";
     document.querySelector('[data-s="sbLen"]').closest("label").style.display = s.sbLenMode === "fix" ? "" : "none";
+    document.querySelector('[data-s="labelCustom"]').closest("label").style.display = s.labelColor === "custom" ? "" : "none";
+    document.querySelector('[data-s="sbCustom"]').closest("label").style.display = s.sbColor === "custom" ? "" : "none";
     renderThumbs(s);
     // Preview resolution: max ~1600 px wide
     const widthIn = (s.widthPreset === "custom" ? s.widthCm : parseFloat(s.widthPreset)) / 2.54;
