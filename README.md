@@ -94,3 +94,9 @@ Hinweis: GitHub Pages ist bei kostenlosen Accounts nur für **öffentliche** Rep
 - Ein im Bild eingebrannter Maßstab skaliert mit. In kleinen Panels wird seine Schrift unleserlich.
   Dann besser Bilder ohne eingebrannten Balken exportieren und den Balken hier einblenden.
 - Ab dem 27. Panel geht die Beschriftung mit (aa), (ab), … weiter.
+
+## Unterstützen
+
+Das Tool ist kostenlos. Wenn es dir Zeit spart, kannst du mir über den Button „☕ Kaffee spendieren“ oben rechts
+einen Kaffee auf Ko-fi spendieren. Der Button ist ein einfacher Link: Es werden keine Skripte von Ko-fi geladen,
+und erst beim Klick wird ko-fi.com geöffnet.
